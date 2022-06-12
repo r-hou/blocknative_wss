@@ -35,33 +35,33 @@ def get_uuid1():
 
 
 class HeartBeat(object):
-    """ 心跳
+    """ heartbeat
     """
 
     def __init__(self):
-        self._count = 0  # 心跳次数
-        self._interval = 1  # 服务心跳执行时间间隔(秒)
-        self._print_interval = 0  # 心跳打印时间间隔(秒)，0为不打印
-        self._tasks = {}  # 跟随心跳执行的回调任务列表，由 self.register 注册 {task_id: {...}}
+        self._count = 0  # heartbeat count
+        self._interval = 1  # interval between heartbeat
+        self._print_interval = 0  # print heartbeat msg every _print_interval time 
+        self._tasks = {}  # callbacks to be executed together with heartbeat，is registered by self.register func {task_id: {...}}
 
     @property
     def count(self):
         return self._count
 
     def ticker(self):
-        """ 启动心跳， 每秒执行一次
+        """ start heartbeat
         """
         self._count += 1
 
-        # 打印心跳次数
+        # print heartbeat counts
         if self._print_interval > 0:
             if self._count % self._print_interval == 0:
                 print("do server heartbeat, count:", self._count)
 
-        # 设置下一次心跳回调
+        # set next heartbeat
         asyncio.get_event_loop().call_later(self._interval, self.ticker)
 
-        # 执行任务回调
+        # exec callback
         for task_id, task in self._tasks.items():
             interval = task["interval"]
             if self._count % interval != 0:
@@ -74,7 +74,7 @@ class HeartBeat(object):
             asyncio.get_event_loop().create_task(func(*args, **kwargs))
 
     def register(self, func, interval=1, *args, **kwargs):
-        """ 注册一个任务，在每次心跳的时候执行调用
+        """ register a new task and exec everytime with heartbeat
         """
         t = {
             "func": func,
@@ -87,8 +87,8 @@ class HeartBeat(object):
         return task_id
 
     def unregister(self, task_id):
-        """ 注销一个任务
-        @param task_id 任务id
+        """ unregister a task
+        @param task_id task id
         """
         if task_id in self._tasks:
             self._tasks.pop(task_id)
@@ -162,22 +162,20 @@ class BlockNativeSubscriber:
 
         self._check_conn_interval = PING_INTERVAL
         self._send_hb_interval = send_hb_interval
-        self.ws = None  # websocket连接对象
-        self.heartbeat_msg = heartbeat_msg  # 心跳消息
+        self.ws = None  # websocket connection obj
+        self.heartbeat_msg = heartbeat_msg  # heartbeat msg
         self.heartbeat_msg_count = 0
 
     def initialize(self):
 
-        # 注册服务 检查连接是否正常
+        # register the task and check the connection
         print("register the task and check the connection")
         heartbeat.register(self._check_connection, self._check_conn_interval)
-        # 注册服务 发送心跳
+        # register the task and send the heartbeat
         print("register the task and send the heartbeat")
         if self._send_hb_interval > 0:
             heartbeat.register(self._send_heartbeat_msg, self._send_hb_interval)
-            # self.ws.ping()
-            # loop.call_later(0.5, heartbeat.ticker)
-        # 建立websocket连接
+        # establish websocket connection
         print("establish websocket connection")
         asyncio.get_event_loop().create_task(self._connect())
 
@@ -185,7 +183,7 @@ class BlockNativeSubscriber:
         session = aiohttp.ClientSession()
         try:
             self.ws = await session.ws_connect(self._url, timeout=10)
-            print("connection has been established!")
+            print("connection has been successfully established!")
         except Exception as e:
             print("ERROR:{},{}".format(e.__class__, e))
             self.ws = await session.ws_connect(self._url, timeout=10)
@@ -203,7 +201,7 @@ class BlockNativeSubscriber:
         await self._connect()
 
     async def receive(self):
-        """ 接收消息
+        """ receive the msg from wss
         """
         async for msg in self.ws:
             # print(msg)
@@ -237,14 +235,14 @@ class BlockNativeSubscriber:
                 print("unhandled msg:", msg)
 
     async def process_binary(self, msg):
-        """ 处理websocket上接收到的消息 binary类型
+        """ handle binary msg received from wss
         """
         raise NotImplementedError
 
     async def _check_connection(self, *args, **kwargs):
-        """ 检查连接是否正常
+        """ check the wss connection
         """
-        # 检查websocket连接是否关闭，如果关闭，那么立即重连
+        # check wether websocket conn is closed，if yes, then reconnect
         # print("self.ws")
         if not self.ws:
             print("websocket connection not connected yet!")
@@ -511,7 +509,7 @@ class BlockNativeSubscriber:
         return transaction
 
     async def _send_heartbeat_msg(self, *args, **kwargs):
-        """ 发送心跳给服务器
+        """ send heartbeat to server
         """
         print("in send hb")
         if not self.ws:

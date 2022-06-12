@@ -5,6 +5,7 @@ import uuid
 import functools
 import json
 import traceback
+from blocknative_wss.blocknative import heartbeat
 
 class Event:
     """ Event base.
@@ -106,8 +107,6 @@ class Event:
 class EventPendingTx(Event):
 
     def __init__(self, server_id, routing_key, event_center,data={}):
-        # name = "EVENT_KLINE_15MIN"
-        # exchange = "Kline.15min"
         name = "TX_PENDING"
         exchange = "pendingTx"
         routing_key = routing_key
@@ -121,71 +120,7 @@ class EventPendingTx(Event):
     def parse(self):
         return self.data
 
-class HeartBeat(object):
-    """ 心跳
-    """
 
-    def __init__(self, interval=0):
-        self._count = 0  # 心跳次数
-        self._interval = 1  # 服务心跳执行时间间隔(秒)
-        self._print_interval = interval  # 心跳打印时间间隔(秒)，0为不打印
-        self._tasks = {}  # 跟随心跳执行的回调任务列表，由 self.register 注册 {task_id: {...}}
-
-    @property
-    def count(self):
-        return self._count
-
-    def ticker(self):
-        """ 启动心跳， 每秒执行一次
-        """
-        self._count += 1
-
-        # 打印心跳次数
-        if self._print_interval > 0:
-            if self._count % self._print_interval == 0:
-                print("do server heartbeat, count:", self._count)
-
-        # 设置下一次心跳回调
-        asyncio.get_event_loop().call_later(self._interval, self.ticker)
-
-        # 执行任务回调
-        for task_id, task in self._tasks.items():
-            interval = task["interval"]
-            if self._count % interval != 0:
-                continue
-            func = task["func"]
-            args = task["args"]
-            kwargs = task["kwargs"]
-            kwargs["task_id"] = task_id
-            kwargs["heart_beat_count"] = self._count
-            asyncio.get_event_loop().create_task(func(*args, **kwargs))
-
-    def register(self, func, interval=1, *args, **kwargs):
-        """ 注册一个任务，在每次心跳的时候执行调用
-        @param func 心跳的时候执行的函数
-        @param interval 执行回调的时间间隔(秒)
-        @return task_id 任务id
-        """
-        t = {
-            "func": func,
-            "interval": interval,
-            "args": args,
-            "kwargs": kwargs
-        }
-        task_id = uuid.uuid1()
-
-        self._tasks[task_id] = t
-        return task_id
-
-    def unregister(self, task_id):
-        """ 注销一个任务
-        @param task_id 任务id
-        """
-        if task_id in self._tasks:
-            self._tasks.pop(task_id)
-
-
-heartbeat = HeartBeat()
 METHOD_LOCKERS = {}
 
 
@@ -357,7 +292,6 @@ class EventCenter:
         print("Rabbitmq initialize success!")
 
         # Create default exchanges.
-        # exchanges = ["Orderbook", "Trade", "Kline", "Kline.5min", "Kline.15min", ]
         exchanges = ["pendingTx"]
         for name in exchanges:
             await self._channel.exchange_declare(exchange_name=name, type_name="topic")
