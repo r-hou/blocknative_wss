@@ -110,7 +110,7 @@ import asyncio
 
 class PendingTxSubscriber:
     def __init__(self, callback):
-        EventPendingTx(server_id="mycomputer", routing_key="#.gold.#", event_center=event_center).subscribe(callback,
+        EventPendingTx(server_id="mycomputer", routing_key="#.common.#", event_center=event_center).subscribe(callback,
                                                                                                               multi=True)
 
 
